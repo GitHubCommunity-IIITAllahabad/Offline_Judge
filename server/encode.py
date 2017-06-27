@@ -13,10 +13,10 @@ def get_files(ext):
 
 def encode():
     inputs = get_files(".txt")
-    if not os.path.exists("./Encrypted"):
-        os.makedirs("./Encrypted")
+    if not os.path.exists("./testfiles"):
+        os.makedirs("./testfiles")
     for f in inputs:
-        enc = open("Encrypted/"+f[:-4]+".enc","w")
+        enc = open("testfiles/"+f[:-4]+".enc","w")
         with open("./tests/"+f) as fi:
             encrypted_data = gpg.encrypt(fi.read(), recipients=None, symmetric="AES256", passphrase=passkey)
             enc.write(str(encrypted_data))
@@ -26,7 +26,7 @@ def decode():
     inputs = get_files(".enc")
     for f in inputs:
         dec = open(f[:-4]+".dec","w")
-        with open('./Encrypted/'+f) as fi:
+        with open('./testfiles/'+f) as fi:
             print(fi.read())
             decrypted_data = gpg.decrypt(fi.read(), passphrase=passkey)
             dec.write(str(decrypted_data))
