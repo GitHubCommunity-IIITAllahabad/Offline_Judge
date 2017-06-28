@@ -2,6 +2,17 @@ import gnupg
 import os
 from socket import *
 from threading import Thread
+import json
+
+def json_write(name, score):
+    result = {}
+    if os.path.isfile("./results.json"): 
+        f = open("./results.json", "r")
+        result = json.load(f)
+    f = open("./results.json", "w")
+    result[name] = score
+    json.dump(result, f, sort_keys=True, indent=4)
+    f.close()
 
 def clientHandler():
     while True:
@@ -12,17 +23,20 @@ def clientHandler():
         conn.send(str.encode("ok"))
         flag = True
         while flag:
-            usr = conn.recv(1024)
-            psw = conn.recv(1024)
+            usr = conn.recv(1024).decode("utf-8")
+            psw = conn.recv(1024).decode("utf-8")
             if usr == psw:                          #LDAP Script goes here
                 conn.send(str.encode("True"))
                 flag = False
             else:
-                print("Failed authentication of " + usr.decode("utf-8"))
+                print("Failed authentication of " + usr)
                 conn.send(str.encode("False"))
+        final_score = int(conn.recv(1024).decode("utf-8"))
+        json_write(usr, final_score)
+        conn.send(str.encode("ok"))
         num = int(conn.recv(1024).decode("utf-8"))
         conn.send(str.encode("ok"))
-        print(num)
+        print(usr + ": " + str(final_score))
         while num > 0:
             num -= 1
             name = str(conn.recv(1024).decode("utf-8"))
@@ -30,8 +44,8 @@ def clientHandler():
             data = conn.recv(1024)  
             decrypted_data = gpg.decrypt(str(data.decode("utf-8")), passphrase=passkey)
             decrypted_string = str(decrypted_data)
-            open("Files/"+usr.decode("utf-8")+"_"+name, "w").write(decrypted_string)
-            print("Successfully received " + name +" from " + usr.decode("utf-8"))
+            open("Files/"+usr+"_"+name, "w").write(decrypted_string)
+            print("Successfully received " + name +" from " + usr)
 
         conn.send(str.encode("received"))
         print("\n")

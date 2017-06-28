@@ -40,11 +40,21 @@ def gen_out_hashes():
         hashes[file] = md5("./tests/"+file)
     return hashes
 
-def write_json(inputs, input_hashes, output_hashes, key_hash):
+def get_scores():
+    f = open("./tests/scores","r")
+    i = 1
+    scores = {}
+    for line in f.readlines():
+        scores[str(i)] = int(line)
+        i += 1
+    return scores
+
+def write_json(inputs, input_hashes, output_hashes, scores, key_hash):
     json_data = {
         'inputs' : inputs,
         'input_hashes' : input_hashes,
         'output_hashes' : output_hashes,
+        'scores': scores,
         'key_hash' : key_hash
     }
 
@@ -55,8 +65,9 @@ def main():
     inputs = get_inputs()
     input_hashes = gen_in_hashes()
     output_hashes = gen_out_hashes()
+    scores = get_scores()
     key_hash = md5("./testfiles/public_key.asc")
-    write_json(inputs, input_hashes, output_hashes, key_hash)  
+    write_json(inputs, input_hashes, output_hashes, scores, key_hash)  
     print("Successfully written input filenames and hashes to JSON file")  
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ def main():
     shutil.rmtree("./__pycache__")
     shutil.rmtree("./testfiles")
     os.remove("./tests/head.txt")
+    os.remove("./results.json")
 
     print("Cleaned up server files/folders\n")
 

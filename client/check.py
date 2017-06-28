@@ -82,7 +82,7 @@ def run_program(exe, TEST_CASES, inHashes, outHashes):
 
 
 
-def post_scores(submissions):
+def post_scores(submissions, final_score):
     #try:
     s = socket()
     s.connect(("localhost",9999))
@@ -103,6 +103,8 @@ def post_scores(submissions):
             flag = False
         else:
             print("Incorrect login details, try again")
+    s.send(str.encode(str(final_score)))
+    s.recv(1024)
     s.send(str.encode(str(len(submissions))))
     s.recv(1024)
     for file in submissions:
@@ -132,12 +134,13 @@ def main():
 
     decode("head.enc")
     json_data = json.load(open("./testfiles/.head.dec", "r"))
-    clean_up("./testfiles/.head.dec")
 
     inputs = json_data['inputs']
     input_hashes = json_data['input_hashes']
     output_hashes = json_data['output_hashes']
+    scores = json_data['scores']
     key_hash = json_data['key_hash']
+    final_score = 0
 
     if key_hash != md5("./testfiles/public_key.asc"):
         print("Error: The public key has been modified!")
@@ -159,12 +162,13 @@ def main():
         check_program(filename)
 
         if path_exists(filename[:-2]):
-            print("# Test case\tTime taken\tPassed")
+            print("# Test case\tTime taken\Status")
             print("#--------------------------------------")
             if(run_program(filename[:-2], inputs[question], input_hashes, output_hashes) == True):
                 correct += [filename]
-    print(correct)
-    post_scores(correct)
+                final_score += scores[question]
+
+    post_scores(correct, final_score)
 
 
 if __name__ == "__main__":
