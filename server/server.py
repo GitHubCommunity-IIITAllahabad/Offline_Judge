@@ -1,10 +1,13 @@
 import gnupg
 import os
 from socket import *
-from threading import Thread
+from threading import Thread, Lock
 import json
 
+lock = Lock()
+
 def json_write(name, score):
+    lock.acquire()
     result = {}
     if os.path.isfile("./results.json"): 
         f = open("./results.json", "r")
@@ -13,6 +16,7 @@ def json_write(name, score):
     result[name] = score
     json.dump(result, f, sort_keys=True, indent=4)
     f.close()
+    lock.release()
 
 def clientHandler():
     while True:
