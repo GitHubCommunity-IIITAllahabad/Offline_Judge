@@ -15,7 +15,7 @@ from time import time
 OUTPUT_FILE = 'testfiles/.OUTPUT_TEMP'
 TIMEOUT = 2
 
-gpg = gnupg.GPG(gnupghome="./.gpghome")
+gpg = gnupg.GPG(homedir="./.gpghome")
 
 def md5(fname):
     hash_md5 = hashlib.md5()
@@ -84,18 +84,20 @@ def run_program(exe, TEST_CASES, inHashes, outHashes):
 
 def post_scores(submissions, final_score):
     #try:
+    print("Waiting for connection...")
     s = socket()
     s.connect(("localhost",9999))
     ok = s.recv(1024)
 
     if ok.decode("utf-8") == "ok":
+        print("Connected!")
         flag = True
     else:
         flag = False
         print("Cant connect")
 
     while flag:
-        usr = input("Username: ")
+        usr = input("\nUsername: ")
         s.send(str.encode(usr))
         psw = input("Password: ")
         s.send(str.encode(psw))
@@ -103,6 +105,7 @@ def post_scores(submissions, final_score):
             flag = False
         else:
             print("Incorrect login details, try again")
+    success = 0
     s.send(str.encode(str(final_score)))
     s.recv(1024)
     s.send(str.encode(str(len(submissions))))
@@ -114,17 +117,20 @@ def post_scores(submissions, final_score):
         key_data = open('./testfiles/public_key.asc').read()
         server_key = gpg.import_keys(key_data)
         public_keys = gpg.list_keys()
-        encrypted_data = gpg.encrypt(f, public_keys.uids[0][19:-1], always_trust=True)
-        s.send(str.encode(str(encrypted_data)))
+        encrypted_data = gpg.encrypt(f, public_keys[0]['fingerprint'], always_trust=True)
+        #print("sending:"+str(encrypted_data)+";")
+        siz = s.send(str.encode(str(encrypted_data)))
+        #print(str(siz)+" "+str(sys.getsizeof(str.encode(str(encrypted_data)))))
+        if s.recv(1024).decode("utf-8") == "received":
+            success += 1
+        else:
+            print("Failed to send " + file)
 
-    if s.recv(1024).decode("utf-8") == "received":
+    if success == len(submissions):
         print("Successfully submitted!")
     else:
         print("There was an error in submitting your answers")
-    s.close()
-
-
-    
+    s.close()    
     shutil.rmtree('./.gpghome')
     #except:
      #   print("Error!")
@@ -173,3 +179,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

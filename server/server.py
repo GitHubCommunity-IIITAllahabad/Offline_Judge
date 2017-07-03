@@ -36,22 +36,23 @@ def clientHandler():
                 print("Failed authentication of " + usr)
                 conn.send(str.encode("False"))
         final_score = int(conn.recv(1024).decode("utf-8"))
-        json_write(usr, final_score)
         conn.send(str.encode("ok"))
+        json_write(usr, final_score)
         num = int(conn.recv(1024).decode("utf-8"))
         conn.send(str.encode("ok"))
-        print(usr + ": " + str(final_score))
+        print(usr + " score: " + str(final_score))
         while num > 0:
             num -= 1
             name = str(conn.recv(1024).decode("utf-8"))
+            print("Receiving " + name +" from " + usr)
             conn.send(str.encode("ok"))
-            data = conn.recv(1024)  
+            data = conn.recv(5120)
+            #print("Enc:"+data.decode("utf-8")+";") 
             decrypted_data = gpg.decrypt(str(data.decode("utf-8")), passphrase=passkey)
             decrypted_string = str(decrypted_data)
             open("Files/"+usr+"_"+name, "w").write(decrypted_string)
-            print("Successfully received " + name +" from " + usr)
-
-        conn.send(str.encode("received"))
+            print("Received " + name)
+            conn.send(str.encode("received"))
         print("\n")
         #except:
         #   print("There was some error")               #mostly due to Ctrl+C on client's side
@@ -62,7 +63,7 @@ def main():
     global passkey
     global HOST, PORT, s
 
-    gpg = gnupg.GPG(gnupghome='./gpghome')
+    gpg = gnupg.GPG(homedir='./gpghome')
     passkey=input("Enter server's passphrase: ")
     if passkey == "":
         passkey = "iiita321"

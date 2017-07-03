@@ -3,7 +3,7 @@ import os
 
 def main():
 	key = input("Enter key: ")
-	gpg = gnupg.GPG(gnupghome='./gpghome')
+	gpg = gnupg.GPG(homedir='./gpghome')
 	ascii_armored_public_keys = gpg.export_keys(key)
 	ascii_armored_private_keys = gpg.export_keys(key, True)
 	if not os.path.exists("./testfiles"):

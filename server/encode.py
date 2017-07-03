@@ -18,7 +18,7 @@ def encode():
     for f in inputs:
         enc = open("testfiles/"+f[:-4]+".enc","w")
         with open("./tests/"+f) as fi:
-            encrypted_data = gpg.encrypt(fi.read(), recipients=None, symmetric="AES256", passphrase=passkey)
+            encrypted_data = gpg.encrypt(fi.read(), encrypt=False, symmetric="AES256", passphrase=passkey)
             enc.write(str(encrypted_data))
 
 
@@ -33,7 +33,7 @@ def decode():
 
 def main():
     global gpg, passkey
-    gpg = gnupg.GPG(gnupghome='./gpghome')
+    gpg = gnupg.GPG(homedir='./gpghome')
     passkey="unlock"
     encode()
     #decode()

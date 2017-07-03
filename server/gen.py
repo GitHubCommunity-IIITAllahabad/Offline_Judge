@@ -3,7 +3,7 @@ import gnupg
 
 def main():
 	#os.system('rm -rf ./gpghome')
-	gpg = gnupg.GPG(gnupghome='./gpghome')
+	gpg = gnupg.GPG(homedir='./gpghome')
 	
 	usr = input("Enter a new username: ")
 	if usr == "":
@@ -15,7 +15,8 @@ def main():
 
 	input_data = gpg.gen_key_input(
 	    name_email=usr,
-	    passphrase=psw)
+	    passphrase=psw,
+	    key_type='RSA')
 	key = gpg.gen_key(input_data)
 	print("Your key: " + str(key))
 
