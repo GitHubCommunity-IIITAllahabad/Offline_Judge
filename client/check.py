@@ -12,52 +12,151 @@ from filecmp import cmp as diff
 from subprocess import run, PIPE, CalledProcessError, TimeoutExpired, call, DEVNULL
 from time import time
 
-OUTPUT_FILE = 'testfiles/.OUTPUT_TEMP'
-TIMEOUT = 2
+def main():
 
-gpg = gnupg.GPG(homedir="./.gpghome")
+    home = "./.gpghome/"
+    passkey = "unlock"
+    src = "./testfiles/"
+    keyFile = src + "public_key.asc"
+    ip = "127.0.0.1"
+    port = 9999
+    timeout = 2
 
-def md5(fname):
-    hash_md5 = hashlib.md5()
-    with open(fname, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+    tools = Tools(src, home, passkey)
+    inputs, input_hashes, output_hashes, scores, key_hash = tools.extractHead("head.enc")
 
-def clean_up(filename):
-    if path_exists(OUTPUT_FILE):
-        remove(OUTPUT_FILE)
-    if path_exists(filename):
-        remove(filename)
+    if tools.checkKeyFile(key_hash) == 0: return -1
+    if tools.checkIfExists(inputs) == 0: return 404
 
-def check_program(filename):
-    failed = call(["gcc",filename, "-o", filename[:-2]], stdout=DEVNULL, stderr=DEVNULL, timeout=TIMEOUT)
-    if failed: 
-        print("Compilation Error")
 
-def decode(f):
-    dec = open("testfiles/" + '.' + f[:-4]+".dec","w")
-    with open("testfiles/" + f) as fi:
-        decrypted_data = gpg.decrypt(fi.read(), passphrase="unlock")
-        dec.write(str(decrypted_data))
+    judge = Judge(tools, src, inputs, input_hashes, output_hashes, timeout)
+    accepted = judge.evaluateAll()
+    finalScore = judge.calcScore(scores, accepted)
 
-def run_program(exe, TEST_CASES, inHashes, outHashes):
-    i = 0
-    const = len(TEST_CASES)
-    correct = True
-    for test_case in TEST_CASES:
-        decode(test_case)
-        decoded_file = 'testfiles/' + '.' + test_case[:-3] + 'dec'
-        if md5(decoded_file) != inHashes[test_case[:-4]+'.txt']:
-            print(md5(decoded_file) + '!=' + inHashes[test_case[:-4]+'.txt'])
-            return -1
+    net = Client(ip, port, home, keyFile)
+    net.post_scores(accepted, finalScore)
+    shutil.rmtree(home)
+
+class Tools:
+
+    def __init__(self, src, home, passkey):
+        self.src = src
+        self.passkey = passkey
+        self.home = home
+        pass
+
+    def md5(self, fname):
+        hash_md5 = hashlib.md5()
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+    def clean_up(self, filename):
+        if path_exists(filename):
+            remove(filename)
+
+    def decode(self, f):
+        gpg = gnupg.GPG(homedir=self.home)
+        dec_name = self.src + '.' + f[:-4]+".dec"
+        dec = open(dec_name,"w")
+        with open(self.src + f) as fi:
+            decrypted_data = gpg.decrypt(fi.read(), passphrase=self.passkey)
+            dec.write(str(decrypted_data))
+        return dec_name
+
+    def extractHead(self, f):
+        headDec = self.decode(f)
+        json_data = json.load(open(headDec, "r"))
+        self.clean_up(headDec)
+
+        inputs = json_data['inputs']
+        input_hashes = json_data['input_hashes']
+        output_hashes = json_data['output_hashes']
+        scores = json_data['scores']
+        key_hash = json_data['key_hash']
+
+        return inputs, input_hashes, output_hashes, scores, key_hash
+
+    def checkIfExists(self, files):
+        datafiles = []
+        for question in list(files.values()):
+            for testfile in question:
+                datafiles += [testfile]
+
+        for f in datafiles:
+            if (not path_exists(self.src + f)):
+                print(f, "does not exist")
+                return 0
+
+        return 1
+
+    def checkKeyFile(self, key_hash):
+        if key_hash != self.md5(self.src + "public_key.asc"):
+            print("Error: The public key has been modified!")
+            return 0
+        return 1
+
+class Judge:
+
+    def __init__(self, tools, src, inputs, input_hashes, output_hashes, TIMEOUT):
+        self.tools = tools
+        self.src= src
+        self.inputs = inputs
+        self.input_hashes = input_hashes
+        self.output_hashes = output_hashes
+        self.TIMEOUT = TIMEOUT
+
+    def compile(self, filename):
+        failed = call(["gcc",filename, "-o", self.src + filename[:-2]], stdout=DEVNULL, stderr=DEVNULL, timeout=self.TIMEOUT)
+        if failed: 
+            print("Compilation Error")
+        return self.src + filename[:-2]
+
+    def evaluateAll(self):
+        accepted = []
+        for question in range(1, len(self.inputs) + 1):
+            filename = input("Enter filename for question " + str(question) + ": ")
+            if filename == "":
+                continue
+            exe = self.compile(filename)
+            
+            if path_exists(exe):
+                print("# Test case\tTime taken\Status")
+                print("#--------------------------------------")
+                if(self.evalQuestion(exe, question) == True):
+                    accepted += [filename]
+
+        return accepted
+
+    def evalQuestion(self, exe, question):
+        TEST_CASES = self.inputs[str(question)]
+        correct = True
+
+        for test_case in TEST_CASES:
+            if(self.evalTestCase(exe, test_case) == False):
+                correct = False        
+        
+        self.tools.clean_up(exe)
+        return correct
+
+    def evalTestCase(self, exe, test_case):
+        OUTPUT_FILE = self.src + '.OUTPUT_TEMP'
+        self.tools.decode(test_case)
+        decoded_file = self.src + '.' + test_case[:-3] + 'dec'
+
+        if self.tools.md5(decoded_file) != self.input_hashes[test_case[:-4]+'.txt']:
+            print(self.tools.md5(decoded_file) + '!=' + self.input_hashes[test_case[:-4]+'.txt'])
+            return False
+
         ipf = open(decoded_file)
         opf = open(OUTPUT_FILE, 'w')
         TLE = False
         failed = False
+
         start_time = time()
         try:
-            run("./"+exe, stdin=ipf, stdout=opf, stderr=PIPE, timeout=TIMEOUT,
+            run(exe, stdin=ipf, stdout=opf, stderr=PIPE, timeout=self.TIMEOUT,
                 check=True)
         except TimeoutExpired:
             TLE = True
@@ -65,116 +164,103 @@ def run_program(exe, TEST_CASES, inHashes, outHashes):
         except CalledProcessError as e:
             failed = True
         finally:
+            end_time = time()
             ipf.close()
             opf.close()
-        end_time = time()
+            outmd5 = self.tools.md5(OUTPUT_FILE)
+            self.tools.clean_up(decoded_file)
+            self.tools.clean_up(OUTPUT_FILE)
 
-        status = "failed" if (md5(OUTPUT_FILE) != outHashes[test_case[:-4]+'.out'] or failed) else "passed"
+        status = "failed" if (outmd5 != self.output_hashes[test_case[:-4]+'.out'] or failed or TLE) else "passed"
+
         if status == "failed":
             correct = False
-            print(md5(OUTPUT_FILE) +'!='+ outHashes[test_case[:-4]+'.out'])
-        i += 1
-        print(i, (end_time - start_time) if not TLE else "\tTLE\t", status, sep='\t')
-        clean_up(decoded_file)
-    
-    clean_up(exe)
-    return correct
+            print(outmd5 +'!='+ self.output_hashes[test_case[:-4]+'.out'])
+        else:
+            correct = True
 
+        print((end_time - start_time) if not TLE else "\tTLE\t", status, sep='\t')
 
+        return correct
 
-def post_scores(submissions, final_score):
-    #try:
-    print("Waiting for connection...")
-    s = socket()
-    s.connect(("localhost",9999))
-    ok = s.recv(1024)
+    def calcScore(self, scores, accepted):
+        finalScore = 0
+        
+        for question in accepted:
+            finalScore += scores[question[:-2]]
 
-    if ok.decode("utf-8") == "ok":
-        print("Connected!")
-        flag = True
-    else:
+        return finalScore
+
+class Client:
+    def __init__(self, ip, port, home, keyFile):
+        self.ip = ip
+        self.port = port
+        self.home = home
+        self.keyFile = keyFile
+        self.gpg = gnupg.GPG(homedir=self.home)
+
+    def connect(self):
         flag = False
-        print("Cant connect")
+        try:
+            print("Waiting for connection...")
+            s = socket()
+            s.connect((self.ip, self.port))
+            ok = s.recv(1024)
 
-    while flag:
-        usr = input("\nUsername: ")
-        s.send(str.encode(usr))
-        psw = input("Password: ")
-        s.send(str.encode(psw))
-        if s.recv(1024).decode("utf-8") == "True":
-            flag = False
-        else:
-            print("Incorrect login details, try again")
-    success = 0
-    s.send(str.encode(str(final_score)))
-    s.recv(1024)
-    s.send(str.encode(str(len(submissions))))
-    s.recv(1024)
-    for file in submissions:
-        s.send(str.encode(file))
-        s.recv(1024)
-        f = open(file).read()
-        key_data = open('./testfiles/public_key.asc').read()
-        server_key = gpg.import_keys(key_data)
-        public_keys = gpg.list_keys()
-        encrypted_data = gpg.encrypt(f, public_keys[0]['fingerprint'], always_trust=True)
-        #print("sending:"+str(encrypted_data)+";")
-        siz = s.send(str.encode(str(encrypted_data)))
-        #print(str(siz)+" "+str(sys.getsizeof(str.encode(str(encrypted_data)))))
-        if s.recv(1024).decode("utf-8") == "received":
-            success += 1
-        else:
-            print("Failed to send " + file)
+            if ok.decode("utf-8") == "ok":
+                print("Connected!")
+                flag = True
+        except:
+                print("Cant connect")
+        return s, flag
 
-    if success == len(submissions):
-        print("Successfully submitted!")
-    else:
-        print("There was an error in submitting your answers")
-    s.close()    
-    shutil.rmtree('./.gpghome')
-    #except:
-     #   print("Error!")
+    def authenticate(self, s):
+        flag = True
+        while flag:
+            usr = input("\nUsername: ")
+            s.send(str.encode(usr))
+            psw = input("Password: ")
+            s.send(str.encode(psw))
+            if s.recv(1024).decode("utf-8") == "True":
+                flag = False
+            else:
+                print("Incorrect login details, try again")
 
+    def getFingerprint(self):
+        key_data = open(self.keyFile).read()
+        server_key = self.gpg.import_keys(key_data)
+        public_keys = self.gpg.list_keys()
+        return public_keys[0]['fingerprint']
 
-def main():
+    def post_scores(self, submissions, final_score):
+        try:
+            s, flag = self.connect()
+            if flag == False: return 0
+            self.authenticate(s)
+            fingerprint = self.getFingerprint()
+            success = 0
+            s.send(str.encode(str(final_score)))
+            s.recv(1024)
+            s.send(str.encode(str(len(submissions))))
+            s.recv(1024)
+            for file in submissions:
+                s.send(str.encode(file))
+                s.recv(1024)
+                f = open(file).read()
+                encrypted_data = self.gpg.encrypt(f, fingerprint, always_trust=True)
+                s.send(str.encode(str(encrypted_data)))
+                if s.recv(1024).decode("utf-8") == "received":
+                    success += 1
+                else:
+                    print("Failed to send " + file)
 
-    decode("head.enc")
-    json_data = json.load(open("./testfiles/.head.dec", "r"))
-
-    inputs = json_data['inputs']
-    input_hashes = json_data['input_hashes']
-    output_hashes = json_data['output_hashes']
-    scores = json_data['scores']
-    key_hash = json_data['key_hash']
-    final_score = 0
-
-    if key_hash != md5("./testfiles/public_key.asc"):
-        print("Error: The public key has been modified!")
-        return -1
-
-    values = list(inputs.values())
-    datafiles = []
-    for x in values:
-        datafiles = datafiles + list(x)
-    for f in datafiles:
-        if (not path_exists("testfiles/" + f)):
-            print(f, "does not exist")
-            return
-    correct = []
-    for question in inputs:
-        filename = input("Enter filename for question " + str(question) + ": ")
-        if filename == "":
-            continue
-        check_program(filename)
-
-        if path_exists(filename[:-2]):
-            print("# Test case\tTime taken\Status")
-            print("#--------------------------------------")
-            if(run_program(filename[:-2], inputs[question], input_hashes, output_hashes) == True):
-                correct += [filename]
-                final_score += scores[question]
-
-    post_scores(correct, final_score)
+            if success == len(submissions):
+                print("Successfully submitted!")
+            else:
+                print("There was an error in submitting your answers")
+            s.close()
+        except:
+            print("Error!")
 
 
 if __name__ == "__main__":
