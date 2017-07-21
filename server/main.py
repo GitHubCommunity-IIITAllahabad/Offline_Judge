@@ -45,8 +45,11 @@ elif opt == str(3):
     output_hashes = h.gen_out_hashes()
     scores = h.get_scores('./tests/scores')
     key_hash = h.md5("./testfiles/public_key.asc")
-    h.write_json('./tests/head.txt', inputs, input_hashes, output_hashes, scores, key_hash)  
-    print("Successfully written input filenames and hashes to JSON file")  
+    port = int(input("Enter port number: "))
+    server = h.getIP(port)
+    print("Server details- " + server['ip'] + ":" + str(server['port']))
+    h.write_json('./tests/head.txt', inputs, input_hashes, output_hashes, scores, key_hash, server)
+    print("Successfully generated JSON file")  
 
 elif opt == str(4):
     enc = EncodeFiles(home)
@@ -56,7 +59,8 @@ elif opt == str(4):
 
 elif opt == str(5):
     passkey = input("Enter server's passphrase: ")
-    server = Server(home, "", 9999, passkey, 2)
+    port = int(input("Enter port number: "))
+    server = Server(home, "", port, passkey, 2)
     server.runServer("./Files/", "./results.json")
 
 elif opt == str(6):

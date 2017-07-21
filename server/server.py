@@ -26,7 +26,7 @@ class Server:
 
         if not os.path.exists(dest):
             os.makedirs(dest)
-        print ("Server is running")
+        print ("\nServer is running on " + gethostbyname(gethostname()) + ' at ' + str(self.PORT))
 
         for i in range(self.MAX_CONNS):
             Thread(target=self.clientHandler).start()

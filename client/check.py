@@ -18,12 +18,10 @@ def main():
     passkey = "unlock"
     src = "./testfiles/"
     keyFile = src + "public_key.asc"
-    ip = "127.0.0.1"
-    port = 9999
     timeout = 2
 
     tools = Tools(src, home, passkey)
-    inputs, input_hashes, output_hashes, scores, key_hash = tools.extractHead("head.enc")
+    inputs, input_hashes, output_hashes, scores, key_hash, server = tools.extractHead("head.enc")
 
     if tools.checkKeyFile(key_hash) == 0: return -1
     if tools.checkIfExists(inputs) == 0: return 404
@@ -33,7 +31,7 @@ def main():
     accepted = judge.evaluateAll()
     finalScore = judge.calcScore(scores, accepted)
 
-    net = Client(ip, port, home, keyFile)
+    net = Client(server, home, keyFile)
     net.post_scores(accepted, finalScore)
     shutil.rmtree(home)
 
@@ -75,8 +73,9 @@ class Tools:
         output_hashes = json_data['output_hashes']
         scores = json_data['scores']
         key_hash = json_data['key_hash']
+        server = json_data['server']
 
-        return inputs, input_hashes, output_hashes, scores, key_hash
+        return inputs, input_hashes, output_hashes, scores, key_hash, server
 
     def checkIfExists(self, files):
         datafiles = []
@@ -192,9 +191,9 @@ class Judge:
         return finalScore
 
 class Client:
-    def __init__(self, ip, port, home, keyFile):
-        self.ip = ip
-        self.port = port
+    def __init__(self, server, home, keyFile):
+        self.ip = server['ip']
+        self.port = server['port']
         self.home = home
         self.keyFile = keyFile
         self.gpg = gnupg.GPG(homedir=self.home)

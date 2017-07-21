@@ -1,3 +1,4 @@
+from socket import gethostbyname, gethostname
 import hashlib
 import os
 import json
@@ -54,13 +55,17 @@ class Head:
             i += 1
         return scores
 
-    def write_json(self, dest, inputs, input_hashes, output_hashes, scores, key_hash):
+    def getIP(self, port):
+        return {'ip': gethostbyname(gethostname()), 'port': port}
+
+    def write_json(self, dest, inputs, input_hashes, output_hashes, scores, key_hash, server):
         json_data = {
             'inputs' : inputs,
             'input_hashes' : input_hashes,
             'output_hashes' : output_hashes,
             'scores': scores,
-            'key_hash' : key_hash
+            'key_hash' : key_hash,
+            'server': server
         }
 
         with open(dest, 'w') as fp:
