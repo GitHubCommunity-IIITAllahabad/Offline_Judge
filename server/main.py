@@ -3,42 +3,42 @@ from head import Head
 from server import Server
 from os.path import exists as path_exists
 from os import makedirs
+from random import sample
+import json
 
 print("\nOffline Judge (Server)")
-print("1. Generate Server's key-pair")
-print("2. Export Server's public-key")
-print("3. Generate head.txt")
-print('4. Encode test files')
-print("5. Run the server")
-print("6. Cleanup server")
-print("7. Exit")
+print("1. Start a new Test")
+print("2. Run the Server")
+print("3. Cleanup Server")
 
 opt = input("Enter selection: ")
 
+alpha = "qwertyuiopasdfghjklzxcvbnm1234567890";
+usr = "iiita"
+psw = "".join(sample(alpha, 15))
 home = './gpghome/'
 src = './tests/'
 dest = './testfiles/'
-sym_passkey = 'unlock'
+sym_passkey = "".join(sample(alpha, 10))
 
 if opt == str(1):
     gen = GenerateKey(home)
     print("\nServer")
-    usr = input("Enter a new username: ")
-    psw = input("Enter a new password: ")
+    print("Encrypting test cases...")
+    #usr = input("Enter a new username: ")
+    #psw = input("Enter a new password: ")
     key = gen.generate(usr, psw)
-    print("Your key: " + str(key))
-
-elif opt == str(2):
+    #print("Your key: " + str(key))
+    
     exp = ExportKey(home)
-    key = input("Enter key to export: ")
+    #key = input("Enter key to export: ")
     public_key = exp.export(key)
     if not path_exists(dest):
         makedirs(dest)  
     with open('./testfiles/public_key.asc', 'w') as f:
         f.write(public_key)
-    print("Public key exported: './testfiles/public_key.asc'")
+    #print("Public key exported: './testfiles/public_key.asc'")
 
-elif opt == str(3):
     h = Head(src) 
     inputs = h.get_inputs()
     input_hashes = h.gen_in_hashes()
@@ -49,19 +49,33 @@ elif opt == str(3):
     server = h.getIP(port)
     print("Server details- " + server['ip'] + ":" + str(server['port']))
     h.write_json('./tests/head.txt', inputs, input_hashes, output_hashes, scores, key_hash, server)
-    print("Successfully generated JSON file")  
+    #print("Successfully generated JSON file")  
 
-elif opt == str(4):
     enc = EncodeFiles(home)
     enc.encode(src, dest, sym_passkey)
     l = enc.get_files(src, 'txt')
-    print("Encoded " + str(len(l)) + " files: " + str(l))
+    print("Encoded " + str(len(l)) + " files")
+    print("\nPasskey: " + sym_passkey + "\n")
 
-elif opt == str(5):
-    passkey = input("Enter server's passphrase: ")
-    port = int(input("Enter port number: "))
+    json_data = {
+        "gpg-username": usr,
+        "gpg-password": psw,
+        "passkey": sym_passkey,
+        "ip": server['ip'],
+        "port": server['port'],
+    }
+
+    with open(".server", 'w') as fp:
+            json.dump(json_data, fp, indent=4)
+
+elif opt == str(2):
+    json_data = json.load(open(".server", "r"))
+    passkey = json_data["passkey"]
+    port = int(json_data["port"])
     server = Server(home, "", port, passkey, 2)
     server.runServer("./Files/", "./results.json")
 
-elif opt == str(6):
+elif opt == str(3):
     CleanUp()
+
+

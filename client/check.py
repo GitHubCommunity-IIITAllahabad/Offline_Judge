@@ -15,7 +15,7 @@ from time import time
 def main():
 
     home = "./.gpghome/"
-    passkey = "unlock"
+    passkey = input("Enter passkey: ")
     src = "./testfiles/"
     keyFile = src + "public_key.asc"
     timeout = 2

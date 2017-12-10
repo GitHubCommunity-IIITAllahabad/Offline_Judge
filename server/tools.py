@@ -60,7 +60,8 @@ class CleanUp:
 
         files = [
             './tests/head.txt',
-            './results.json'
+            './results.json',
+            './.server'
         ]
 
         for folder in dirs:
