@@ -5,6 +5,7 @@ import sys
 import hashlib
 import gnupg
 import json
+from getpass import getpass
 from socket import *
 from os.path import exists as path_exists
 from os import remove
@@ -145,7 +146,7 @@ class Judge:
         decoded_file = self.src + '.' + test_case[:-3] + 'dec'
 
         if self.tools.md5(decoded_file) != self.input_hashes[test_case[:-4]+'.txt']:
-            print(self.tools.md5(decoded_file) + '!=' + self.input_hashes[test_case[:-4]+'.txt'])
+            print("Incorrect checksum!")
             return False
 
         ipf = open(decoded_file)
@@ -174,7 +175,6 @@ class Judge:
 
         if status == "failed":
             correct = False
-            print(outmd5 +'!='+ self.output_hashes[test_case[:-4]+'.out'])
         else:
             correct = True
 
@@ -203,14 +203,19 @@ class Client:
         try:
             print("Waiting for connection...")
             s = socket()
-            s.connect((self.ip, self.port))
+            while True:
+                try:
+                    s.connect((self.ip, self.port))
+                    break
+                except:
+                    pass
             ok = s.recv(1024)
 
             if ok.decode("utf-8") == "ok":
                 print("Connected!")
                 flag = True
         except:
-                print("Cant connect")
+                print("Unable to connect")
         return s, flag
 
     def authenticate(self, s):
@@ -218,7 +223,7 @@ class Client:
         while flag:
             usr = input("\nUsername: ")
             s.send(str.encode(usr))
-            psw = input("Password: ")
+            psw = getpass("Password: ")
             s.send(str.encode(psw))
             if s.recv(1024).decode("utf-8") == "True":
                 flag = False

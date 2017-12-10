@@ -22,23 +22,21 @@ dest = './testfiles/'
 sym_passkey = "".join(sample(alpha, 10))
 
 if opt == str(1):
+    # Generate GNUPG Key
     gen = GenerateKey(home)
     print("\nServer")
     print("Encrypting test cases...")
-    #usr = input("Enter a new username: ")
-    #psw = input("Enter a new password: ")
     key = gen.generate(usr, psw)
-    #print("Your key: " + str(key))
     
+    # Export generated key
     exp = ExportKey(home)
-    #key = input("Enter key to export: ")
     public_key = exp.export(key)
     if not path_exists(dest):
         makedirs(dest)  
     with open('./testfiles/public_key.asc', 'w') as f:
         f.write(public_key)
-    #print("Public key exported: './testfiles/public_key.asc'")
 
+    # Write details of test into a head file
     h = Head(src) 
     inputs = h.get_inputs()
     input_hashes = h.gen_in_hashes()
@@ -49,14 +47,15 @@ if opt == str(1):
     server = h.getIP(port)
     print("Server details- " + server['ip'] + ":" + str(server['port']))
     h.write_json('./tests/head.txt', inputs, input_hashes, output_hashes, scores, key_hash, server)
-    #print("Successfully generated JSON file")  
 
+    # Encrypt all input files
     enc = EncodeFiles(home)
     enc.encode(src, dest, sym_passkey)
     l = enc.get_files(src, 'txt')
     print("Encoded " + str(len(l)) + " files")
     print("\nPasskey: " + sym_passkey + "\n")
 
+    # Store server details
     json_data = {
         "gpg-username": usr,
         "gpg-password": psw,
